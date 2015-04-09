@@ -17,7 +17,8 @@ except ImportError:
     PARAMIKO = False
 
 MANDATORY_OPTIONS = {'local': ['path'],
-                     'sftp': ['hostname', 'username', 'path']
+                     'sftp': ['hostname', 'username', 'path'],
+                     's3': ['access-key', 'secret-key-path', 'bucket-name'],
                     }
 
 
@@ -131,3 +132,39 @@ class Sftp(Transport):
     def __del__(self):
         """Attempt to clean up if the connection was not closed"""
         self.close()
+
+
+class S3(Transport):
+    """Use boto to save and retrieve files via s3."""
+
+    def __init__(self, **s3_kwargs):
+        import boto
+        secret_key_path = os.path.expanduser(s3_kwargs['secret-key-path'])
+        if not os.path.exists(secret_key_path):
+            sys.exit("You must install the s3 secret key at %s"
+                     % secret_key_path)
+        with open(secret_key_path) as f:
+            secret_key = f.read().strip()
+        self.boto_conn = boto.connect_s3(s3_kwargs['access-key'], secret_key)
+        self.bucket = self.boto_conn.get_bucket(s3_kwargs['bucket-name'])
+        self.key_class = boto.s3.key.Key
+
+    def get(self, sha, local_file):
+        """Copy the sha file from the server"""
+        key = self.key_class(self.bucket)
+        key.key = sha
+        key.get_contents_to_filename(local_file)
+
+    def put(self, local_file, sha):
+        """Copy the the local file to the server"""
+        key = self.key_class(self.bucket)
+        key.key = sha
+        key.set_contents_from_filename(local_file)
+
+    def exists(self, sha):
+        """Return True if the sha file exists on the server"""
+        return sha in self.pushed()
+
+    def pushed(self):
+        """Return the list of pushed files"""
+        return [k.key for k in self.bucket.list()]
