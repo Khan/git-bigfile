@@ -228,10 +228,14 @@ class GitBigfile(object):
         util.print_status('Expanded bigfiles', expanded)
         util.print_status('Deleted bigfiles', deleted)
 
-    def pull(self):
+    def pull(self, files=None):
         """Expand bigfiles by pulling them from the server if needed"""
         to_expand, expanded, deleted = self._get_bigfiles_status()
         for filename, sha, is_pushed, size in to_expand:
+            # If they specified a list of files to limit to, check the limit.
+            if files and filename not in files:
+                continue
+
             cache_file = os.path.join(self._objects, sha)
             if not os.path.isfile(cache_file):
                 if self._transport.exists(sha):
@@ -246,7 +250,7 @@ class GitBigfile(object):
                 # Update the index
                 util.run('git add %s' % filename)
 
-    def push(self):
+    def push(self, files=None):
         """Push cached files to the server"""
         for sha in self._get_unpushed_files():
             print 'Uploading %s' % sha[:8]

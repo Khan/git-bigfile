@@ -2,7 +2,8 @@
 """git-bigfile
 
 Usage: git-bigfile [-h|-v] (add <filename>|clear|config [--global]|
-                            filter-clean|filter-smudge|push|pull|status)
+                            filter-clean|filter-smudge|
+                            pull [filename ...]|push|status)
 """
 
 import os
@@ -85,6 +86,8 @@ def main():
     parser_pull = subparsers.add_parser(
         'pull',
         help='expand bigfiles by pulling them from the server if needed')
+    parser_pull.add_argument('files', nargs='*', metavar='FILENAME',
+                             help='If specified, pull just these files')
 
     parser_status = subparsers.add_parser(
         'status',
