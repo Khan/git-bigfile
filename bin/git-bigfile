@@ -7,10 +7,43 @@ Usage: git-bigfile [-h|-v] (add <filename>|clear|config [--global]|
 
 import os
 import re
+import subprocess
 import sys
+import time
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from gitbigfile import command, __version__
+
+
+def _sync_git_bigfile(git_bigfile_root):
+    """Make sure we're using the most up-to-date version of git_bigfile.
+
+    Updates git_bigfile repositories.  Since this takes a few seconds,
+    we only do it once a day.
+
+    Arguments:
+      git_bigfile_root: the root of the git_bigfile repository.
+
+    Returns:
+      True if we did the pull, false else.
+    """
+    try:
+        # TODO(csilvers): use ~/.git-bigfile.pull or /tmp/git-bigfile.pull.<uid>
+        last_pull_time = os.stat('/tmp/git-bigfile.pull').st_mtime
+    except (IOError, OSError):
+        last_pull_time = 0
+    if last_pull_time + 24 * 60 * 60 >= time.time():
+        return False
+
+    try:
+        subprocess.check_call(['git', 'pull', '-q'], cwd=git_bigfile_root)
+    except subprocess.CalledProcessError, why:
+        sys.exit('While updating the git-bigfiles binary, "git pull" failed '
+                 'in %s: %s. '
+                 'Make sure the repo is clean.' % (git_bigfile_root, str(why)))
+
+    open('/tmp/git-bigfile.pull', 'w').close()    # update the last-pull time.
+    return True
 
 
 def main():
@@ -56,6 +89,10 @@ def main():
     parser_status = subparsers.add_parser(
         'status',
         help='display the status of all bigfiles')
+
+    if _sync_git_bigfile(os.path.dirname(__file__)):
+        # Restart the process since we may have git-pulled new content.
+        os.execv(sys.argv[0], sys.argv)
 
     args = parser.parse_args()
     arg_dict = vars(args)
