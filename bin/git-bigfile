@@ -60,7 +60,8 @@ def main():
     args = parser.parse_args()
     arg_dict = vars(args)
 
-    if args.cmd == 'config':
+    cmd = arg_dict.pop('cmd')
+    if cmd == 'config':
         # '--global' conflicts with a python keyword, so we must be careful.
         command.config(global_flag=arg_dict['global'])
     else:
