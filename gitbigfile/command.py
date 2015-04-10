@@ -51,6 +51,18 @@ class GitBigfile(object):
         self._config = util.get_git_config()
         self._transport = self._get_transport()
 
+    def _repo_uses_bigfile(self):
+        """Return False if the repo is not set up to use bigfile at all."""
+        # If there is no filter to handle bigfiles, there can be no bigfiles.
+        try:
+            with open(util.get_gitattributes(), 'r') as f:
+                return 'filter=bigfile' in f.read()
+        except (IOError, OSError), e:
+            if e.errno == errno.ENOENT:
+                return False
+            else:
+                raise
+
     def _get_relpath(self, filename):
         """Return filename relative file path from the current dir"""
         full_path = os.path.join(self._repo_path, filename)
@@ -162,9 +174,18 @@ class GitBigfile(object):
         to_expand = []
         expanded = []
         deleted = []
+
+        # If there is no filter to handle bigfiles, there can be no bigfiles.
+        if not self._repo_uses_bigfile():
+            return ([], [], [])
+
         tree_entries = util.run('git ls-tree -l -r HEAD --full-tree').split('\n')
         bigfiles = [(entry.split()[-1], entry.split()[2])
                     for entry in tree_entries if entry.split()[-2] == str(SHA_FILE_SIZE)]
+        # Even with a filter, there may not be any bigfiles in this repo.
+        if not bigfiles:
+            return ([], [], [])
+
         pushed_files = self._transport.pushed()
         for filename, blob in bigfiles:
             relpath = self._get_relpath(filename)
@@ -191,6 +212,10 @@ class GitBigfile(object):
 
     def _get_unpushed_files(self):
         """Return the list of unpushed files"""
+        # Without a filter to handle bigfiles, there can be nothing to push.
+        if not self._repo_uses_bigfile():
+            return []
+
         pushed_files = self._transport.pushed()
         cached_files = os.listdir(self._objects)
         unpushed_files = frozenset(cached_files) - frozenset(pushed_files)
@@ -230,6 +255,7 @@ class GitBigfile(object):
 
     def clear(self):
         """Remove pushed files from cache"""
+        # TODO(csilvers): short-circuit if self._objects is the empty dir.
         pushed_files = self._transport.pushed()
         for sha in pushed_files:
             cache_file = os.path.join(self._objects, sha)
