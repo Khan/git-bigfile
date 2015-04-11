@@ -46,10 +46,31 @@ def config(global_flag=False):
 class GitBigfile(object):
 
     def __init__(self):
-        self._objects = util.get_bigfile_dir('objects')
-        self._repo_path = util.get_repo_dir()
-        self._config = util.get_git_config()
-        self._transport = self._get_transport()
+        # These are all calculated lazily.
+        self._objects = None
+        self._repo_path = None
+        self._config = None
+        self._transport = None
+
+    def objects(self):
+        if self._objects is None:
+            self._objects = util.get_bigfile_dir('objects')
+        return self._objects
+
+    def repo_path(self):
+        if self._repo_path is None:
+            self._repo_path = util.get_repo_dir()
+        return self._repo_path
+
+    def config(self):
+        if self._config is None:
+            self._config = util.get_git_config()
+        return self._config
+
+    def transport(self):
+        if self._transport is None:
+            self._transport = self._get_transport()
+        return self._transport
 
     def _repo_uses_bigfile(self):
         """Return False if the repo is not set up to use bigfile at all."""
@@ -65,19 +86,19 @@ class GitBigfile(object):
 
     def _get_relpath(self, filename):
         """Return filename relative file path from the current dir"""
-        full_path = os.path.join(self._repo_path, filename)
+        full_path = os.path.join(self.repo_path(), filename)
         return os.path.relpath(full_path)
 
     def _get_transport(self):
         """Return the transport class to use"""
         # Get the transport to use
         try:
-            t = self._config['git-bigfile.transport']
+            t = self.config()['git-bigfile.transport']
         except KeyError:
             sys.stderr.write('git-bigfile.transport is not set\n')
             sys.exit(1)
         # Get and check all transport options
-        kwargs = dict([(key.split('.')[-1], value) for key, value in self._config.items()
+        kwargs = dict([(key.split('.')[-1], value) for key, value in self.config().items()
                         if key.startswith('git-bigfile.%s.' % t)])
         try:
             mandatory_options = frozenset(transport.MANDATORY_OPTIONS[t])
@@ -136,7 +157,7 @@ class GitBigfile(object):
             sha = hashfunc.hexdigest()
             # Rename the temporary file
             temp.close()
-            bigfile = os.path.join(self._objects, sha)
+            bigfile = os.path.join(self.objects(), sha)
             os.rename(temp.name, bigfile)
             sys.stderr.write('Saving bigfile: %s\n' % sha)
         print sha
@@ -150,7 +171,7 @@ class GitBigfile(object):
         data, sha = self._check_stdin()
         if sha:
             # Try to recover the bigfile
-            bigfile = os.path.join(self._objects, sha)
+            bigfile = os.path.join(self.objects(), sha)
             if os.path.isfile(bigfile):
                 sys.stderr.write('Recovering bigfile: %s\n' % sha)
                 with open(bigfile, 'rb') as f:
@@ -191,7 +212,7 @@ class GitBigfile(object):
         if not bigfiles:
             return ([], [], [])
 
-        pushed_files = self._transport.pushed()
+        pushed_files = self.transport().pushed()
         for filename, blob in bigfiles:
             relpath = self._get_relpath(filename)
             sha = util.run('git show %s' % blob)
@@ -221,8 +242,8 @@ class GitBigfile(object):
         if not self._repo_uses_bigfile():
             return []
 
-        pushed_files = self._transport.pushed()
-        cached_files = os.listdir(self._objects)
+        pushed_files = self.transport().pushed()
+        cached_files = os.listdir(self.objects())
         unpushed_files = frozenset(cached_files) - frozenset(pushed_files)
         return unpushed_files
 
@@ -241,13 +262,13 @@ class GitBigfile(object):
             if files and filename not in files:
                 continue
 
-            cache_file = os.path.join(self._objects, sha)
+            cache_file = os.path.join(self.objects(), sha)
             if not os.path.isfile(cache_file):
-                if self._transport.exists(sha):
+                if self.transport().exists(sha):
                     print 'Downloading %s : %s' % (sha[:8], filename)
                     temp = self._get_tempfile()
                     temp.close()     # we just need the name
-                    self._transport.get(sha, temp.name)
+                    self.transport().get(sha, temp.name)
                     os.rename(temp.name, cache_file)
             try:
                 print 'Expanding %s : %s' % (sha[:8], filename)
@@ -262,15 +283,15 @@ class GitBigfile(object):
         """Push cached files to the server"""
         for sha in self._get_unpushed_files():
             print 'Uploading %s' % sha[:8]
-            local_file = os.path.join(self._objects, sha)
-            self._transport.put(local_file, sha)
+            local_file = os.path.join(self.objects(), sha)
+            self.transport().put(local_file, sha)
 
     def clear(self):
         """Remove pushed files from cache"""
-        # TODO(csilvers): short-circuit if self._objects is the empty dir.
-        pushed_files = self._transport.pushed()
+        # TODO(csilvers): short-circuit if self.objects() is the empty dir.
+        pushed_files = self.transport().pushed()
         for sha in pushed_files:
-            cache_file = os.path.join(self._objects, sha)
+            cache_file = os.path.join(self.objects(), sha)
             try:
                 os.unlink(cache_file)
                 print 'Removing %s from cache' % sha[:8]
