@@ -97,6 +97,11 @@ class GitBigfile(object):
         t_class = t[0].upper() + t[1:]
         return getattr(transport, t_class)(**kwargs)
 
+    def _get_tempfile(self):
+        """Return a File object of a temporary file. It is not auto-deleted."""
+        return tempfile.NamedTemporaryFile(dir=util.get_bigfile_dir('tmp'),
+                                           delete=False)
+
     def _check_stdin(self):
         """Check if the data received on stdin is a sha file
 
@@ -119,7 +124,7 @@ class GitBigfile(object):
         # otherwise read in buffered chunks of the data
         # calculating the SHA and copying to a temporary file
         if sha is None:
-            temp = tempfile.NamedTemporaryFile(dir=util.get_bigfile_dir('tmp'), delete=False)
+            temp = self._get_tempfile()
             hashfunc = hashlib.sha1()
             while True:
                 hashfunc.update(data)
@@ -240,7 +245,10 @@ class GitBigfile(object):
             if not os.path.isfile(cache_file):
                 if self._transport.exists(sha):
                     print 'Downloading %s : %s' % (sha[:8], filename)
-                    self._transport.get(sha, cache_file)
+                    temp = self._get_tempfile()
+                    temp.close()     # we just need the name
+                    self._transport.get(sha, temp.name)
+                    os.rename(temp.name, cache_file)
             try:
                 print 'Expanding %s : %s' % (sha[:8], filename)
                 shutil.copy(cache_file, filename)
@@ -271,6 +279,14 @@ class GitBigfile(object):
                     pass
                 else:
                     raise
+
+        # We can also delete the entire tmp dir, which should be empty.
+        temp_dir = util.get_bigfile_dir('tmp')
+        temp_files = os.listdir(temp_dir)
+        if temp_files:
+            print 'Removing %s objects from the temp-dir' % len(temp_files)
+            for filename in temp_files:
+                os.unlink(os.path.join(temp_dir, filename))
 
     def add(self, filename):
         """Add filename to .gitattributes and to the index"""
