@@ -36,8 +36,13 @@ def _sync_git_bigfile(git_bigfile_root):
     if last_pull_time + 24 * 60 * 60 >= time.time():
         return False
 
+    git_bigfile_git = os.path.join(git_bigfile_root, ".git")
+
     try:
-        subprocess.check_call(['git', 'pull', '-q'], cwd=git_bigfile_root)
+        # We need to set git-dir and work-tree otherwise it grabs the git dir
+        # from the env which might already be set to a different repo.
+        subprocess.check_call(['git', "--git-dir", git_bigfile_git, 
+                               "--work-tree", git_bigfile_root, 'pull'])
     except subprocess.CalledProcessError, why:
         sys.exit('While updating the git-bigfiles binary, "git pull" failed '
                  'in %s: %s. '
@@ -93,7 +98,7 @@ def main():
         'status',
         help='display the status of all bigfiles')
 
-    if _sync_git_bigfile(os.path.dirname(__file__)):
+    if _sync_git_bigfile(os.path.dirname(os.path.dirname(__file__))):
         # Restart the process since we may have git-pulled new content.
         os.execv(sys.argv[0], sys.argv)
 
