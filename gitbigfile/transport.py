@@ -10,11 +10,24 @@ import os
 import sys
 import errno
 import shutil
+
+# Add vendor path so we can find vendored packages
+_fp = os.path.dirname(os.path.realpath(__file__))
+_vendor_dir = os.path.abspath(os.path.join(_fp, os.pardir, 'vendor'))
+sys.path.append(_vendor_dir)
+
 try:
     import paramiko
     PARAMIKO = True
 except ImportError:
     PARAMIKO = False
+
+try:
+    import boto
+    BOTO = True
+except ImportError:
+    BOTO = False
+
 
 MANDATORY_OPTIONS = {'local': ['path'],
                      'sftp': ['hostname', 'username', 'path'],
@@ -76,8 +89,7 @@ class Sftp(Transport):
         self.path = path
         self.ssh_kwargs = ssh_kwargs
         if not PARAMIKO:
-            sys.stderr.write('paramiko is required to use sftp transport\n')
-            sys.exit(1)
+            sys.exit("paramiko is required to use sftp transport")
 
     def _connect(self):
         """Create a ssh client and a sftp client"""
@@ -138,7 +150,9 @@ class S3(Transport):
     """Use boto to save and retrieve files via s3."""
 
     def __init__(self, **s3_kwargs):
-        import boto
+        if not BOTO:
+            sys.exit("boto is required to use S3 transport")
+
         secret_key_path = os.path.expanduser(s3_kwargs['secret-key-path'])
         if not os.path.exists(secret_key_path):
             sys.exit("You must install the s3 secret key at %s"

@@ -1,0 +1,13 @@
+# Note: these requirements are vendored manually via the Makefile.
+# - if you are an end user of this tool, you don't need to install via pip.
+# - if you are a maintainer of this tool, be sure to use `make vendor_deps`
+#   anytime you make changes to this file, and check the corresponding changes
+#   to the /vendor/* directory in with your change as well.
+
+# boto is required for S3 transport addition made by KA
+boto
+
+# parmiko is required for SFTP transport.
+# we don't vendor it since that transport is not used at KA.
+# ...can still be installed manually via pip if desired.
+# paramiko
