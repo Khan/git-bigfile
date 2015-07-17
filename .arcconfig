@@ -1,0 +1,5 @@
+{
+    "project_id": "git-bigfile",
+    "conduit_uri": "https://phabricator.khanacademy.org/",
+    "lint.engine": "ArcanistConfigurationDrivenLintEngine"
+}

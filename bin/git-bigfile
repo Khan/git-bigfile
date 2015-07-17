@@ -11,10 +11,10 @@ import re
 import subprocess
 import sys
 import time
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+_WD = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(_WD)
 
 from gitbigfile import command, __version__
-
 
 def _sync_git_bigfile(git_bigfile_root):
     """Make sure we're using the most up-to-date version of git_bigfile.
@@ -28,6 +28,10 @@ def _sync_git_bigfile(git_bigfile_root):
     Returns:
       True if we did the pull, false else.
     """
+    # If we're not a git repo, we can't pull.
+    if not os.path.isdir(os.path.join(_WD, '.git')):
+        return False
+
     try:
         # TODO(csilvers): use ~/.git-bigfile.pull or /tmp/git-bigfile.pull.<uid>
         last_pull_time = os.stat('/tmp/git-bigfile.pull').st_mtime
@@ -41,7 +45,7 @@ def _sync_git_bigfile(git_bigfile_root):
     try:
         # We need to set git-dir and work-tree otherwise it grabs the git dir
         # from the env which might already be set to a different repo.
-        subprocess.check_call(['git', "--git-dir", git_bigfile_git, 
+        subprocess.check_call(['git', "--git-dir", git_bigfile_git,
                                "--work-tree", git_bigfile_root, 'pull'])
     except subprocess.CalledProcessError, why:
         sys.exit('While updating the git-bigfiles binary, "git pull" failed '
