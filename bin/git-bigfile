@@ -102,7 +102,7 @@ def main():
         'status',
         help='display the status of all bigfiles')
 
-    if _sync_git_bigfile(os.path.dirname(os.path.dirname(__file__))):
+    if _sync_git_bigfile(_WD):
         # Restart the process since we may have git-pulled new content.
         os.execv(sys.argv[0], sys.argv)
 
