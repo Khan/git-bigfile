@@ -45,8 +45,13 @@ def _sync_git_bigfile(git_bigfile_root):
     try:
         # We need to set git-dir and work-tree otherwise it grabs the git dir
         # from the env which might already be set to a different repo.
+        #
+        # It's very important that we redirect standard out to standard error
+        # here, because the stdout of git bigfile winds up as the contents in
+        # the working directory of filters that use bigfile as a filter!
         subprocess.check_call(['git', "--git-dir", git_bigfile_git,
-                               "--work-tree", git_bigfile_root, 'pull'])
+                               "--work-tree", git_bigfile_root, 'pull'],
+                              stdout=sys.stderr)
     except subprocess.CalledProcessError, why:
         sys.exit('While updating the git-bigfiles binary, "git pull" failed '
                  'in %s: %s. '
