@@ -56,8 +56,8 @@ def convert(item):
 
 def get_git_config():
     """Return a dictionary with all git options"""
-    config = run('git config --list')
-    items = [item.split('=', 1) for item in config.split('\n')]
+    config = run('git config --list -z')
+    items = [item.split('\n', 1) for item in config.split('\0') if item]
     return dict([(key, convert(value)) for key, value in items])
 
 
@@ -107,4 +107,5 @@ def print_status(title, bigfiles):
                 status = 'pushed  '
             else:
                 status = 'unpushed'
-            print '   %s %s %s %s' % (status, size_str.ljust(10), sha[:8], filename)
+            print '   %s %s %s %s' % (status, size_str.ljust(10),
+                                      sha[:8], filename)
